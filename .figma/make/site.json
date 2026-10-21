@@ -1,0 +1,10 @@
+{
+  "description": "Showcases Epocx Innovation's tech services and projects with a sleek, user-friendly design to attract clients seeking AI and software solutions.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
