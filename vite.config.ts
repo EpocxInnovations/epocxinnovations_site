@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),
       figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' }),
+      apiLocalServerPlugin(),
     ],
     resolve: {
       alias: {
@@ -392,6 +393,100 @@ function figmaMakeKitPlugin(options: { storiesGlob: string | string[] }): Plugin
           next(err as Error)
         }
       })
+    },
+  }
+}
+
+/** Local dev/preview middleware for /api/contact and /api/health */
+function apiLocalServerPlugin(): Plugin {
+  function registerRoutes(middlewares: any) {
+    middlewares.use('/api/health', (_req: any, res: any) => {
+      res.setHeader('Content-Type', 'application/json')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.end(JSON.stringify({ status: 'ok', timestamp: Date.now() }))
+    })
+
+    middlewares.use('/api/contact', async (req: any, res: any) => {
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204
+        res.end()
+        return
+      }
+
+      if (req.method !== 'POST') {
+        res.statusCode = 405
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ ok: false, error: 'Method Not Allowed' }))
+        return
+      }
+
+      let raw = ''
+      req.on('data', (chunk: any) => {
+        raw += chunk
+      })
+      req.on('end', async () => {
+        try {
+          const body = raw ? JSON.parse(raw) : {}
+          const { name, email, details, _gotcha, service = '' } = body
+
+          if (_gotcha && String(_gotcha).trim().length > 0) {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+            return
+          }
+
+          const trimmedName = typeof name === 'string' ? name.trim() : ''
+          const trimmedEmail = typeof email === 'string' ? email.trim() : ''
+          const trimmedDetails = typeof details === 'string' ? details.trim() : ''
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+          if (!trimmedName || !trimmedEmail || !emailRegex.test(trimmedEmail) || !trimmedDetails) {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: false, error: 'Validation failed' }))
+            return
+          }
+
+          if (process.env.RESEND_API_KEY) {
+            const resendRes = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                from: process.env.EMAIL_FROM || 'Epocx Website <no-reply@epocxinnovations.in>',
+                to: [process.env.EMAIL_TO || 'info@epocxinnovations.in'],
+                reply_to: trimmedEmail,
+                subject: `New inquiry from ${trimmedName}`,
+                text: `Name: ${trimmedName}\nEmail: ${trimmedEmail}${service ? `\nService: ${service}` : ''}\n\nMessage:\n${trimmedDetails}`,
+              }),
+            })
+            if (!resendRes.ok) {
+              throw new Error(`Email provider error ${resendRes.status}`)
+            }
+          }
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ ok: true, message: 'Inquiry received successfully' }))
+        } catch (err: any) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ ok: false, error: err.message }))
+        }
+      })
+    })
+  }
+
+  return {
+    name: 'api-local-server',
+    configureServer(server) {
+      registerRoutes(server.middlewares)
+    },
+    configurePreviewServer(server) {
+      registerRoutes(server.middlewares)
     },
   }
 }

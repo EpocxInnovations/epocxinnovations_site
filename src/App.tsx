@@ -1071,6 +1071,7 @@ function ProjectVisual({ type }: { type: number }) {
 
 function FloatingActions() {
   const [showBackToTop, setShowBackToTop] = useState(false)
+  const [isFieldFocused, setIsFieldFocused] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1080,12 +1081,36 @@ function FloatingActions() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  useEffect(() => {
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) {
+        setIsFieldFocused(true)
+      }
+    }
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) {
+        setIsFieldFocused(false)
+      }
+    }
+    window.addEventListener("focusin", handleFocusIn)
+    window.addEventListener("focusout", handleFocusOut)
+    return () => {
+      window.removeEventListener("focusin", handleFocusIn)
+      window.removeEventListener("focusout", handleFocusOut)
+    }
+  }, [])
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   return (
-    <aside className="floating-actions" aria-label="Quick actions">
+    <aside
+      className={`floating-actions${isFieldFocused ? " is-hidden-on-focus" : ""}`}
+      aria-label="Quick actions"
+    >
       <a
         className="fab-btn fab-whatsapp"
         href={`https://wa.me/${WHATSAPP_NUMBER}`}
@@ -1181,6 +1206,13 @@ function HomePage() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [menuOpen])
 
+  const prewarmedRef = useRef(false)
+  const prewarmBackend = () => {
+    if (prewarmedRef.current) return
+    prewarmedRef.current = true
+    fetch("/api/health").catch(() => {})
+  }
+
   const handleInquiry = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     // Mark all touched for validation display
@@ -1197,27 +1229,37 @@ function HomePage() {
 
     setFormStatus("sending")
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 12000)
+
     try {
-      const response = await fetch(
-        "https://formsubmit.co/ajax/info@epocxinnovations.in",
-        {
-          method: "POST",
-          headers: { Accept: "application/json" },
-          body: new FormData(form),
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
-      )
+        signal: controller.signal,
+        body: JSON.stringify({
+          name: fields.name.trim(),
+          email: fields.email.trim(),
+          details: fields.details.trim(),
+          _gotcha: honeypot?.value || "",
+        }),
+      })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) throw new Error("Unable to send inquiry")
       form.reset()
       setFields({ name: "", email: "", details: "" })
       setTouched({ name: false, email: false, details: false })
       setFormStatus("success")
-      // Move focus to success message
-      setTimeout(() => {
-        const msg = document.getElementById("form-success-msg")
-        msg?.focus()
-      }, 100)
+      // Move focus to success message immediately
+      const msg = document.getElementById("form-success-msg")
+      msg?.focus()
     } catch {
+      clearTimeout(timeoutId)
       setFormStatus("error")
     }
   }
@@ -1652,6 +1694,7 @@ function HomePage() {
             <form
               className="contact-form"
               onSubmit={handleInquiry}
+              onFocus={prewarmBackend}
               noValidate
             >
               <input
@@ -1753,7 +1796,8 @@ function HomePage() {
               {formStatus === "error" && (
                 <p className="form-status error" role="alert">
                   Something went wrong. Please email{" "}
-                  <a href="mailto:info@epocxinnovations.in">info@epocxinnovations.in</a>.
+                  <a href="mailto:info@epocxinnovations.in">info@epocxinnovations.in</a> or message us on{" "}
+                  <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>.
                 </p>
               )}
             </form>
