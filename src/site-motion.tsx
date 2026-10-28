@@ -122,6 +122,7 @@ export function StaggerItem({
 }) {
   const reduce = useReducedMotion();
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   return (
     <motion.div
       className={className}
@@ -133,7 +134,7 @@ export function StaggerItem({
               show: {
                 opacity: 1,
                 y: 0,
-                transition: { duration: 0.55, ease: "easeOut" },
+                transition: { duration: isMobile ? 0.4 : 0.55, ease: "easeOut" },
               },
             }
       }
@@ -234,7 +235,12 @@ export function MagneticButton({
   const springY = useSpring(y, { stiffness: 260, damping: 20, mass: 0.4 });
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (reduce || !ref.current) return;
+    if (
+      e.pointerType === "touch" ||
+      (typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia("(pointer: coarse)").matches)) ||
+      reduce ||
+      !ref.current
+    ) return;
     const rect = ref.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
@@ -332,6 +338,7 @@ export function ParallaxMountain({ className }: { className?: string }) {
     offset: ["start end", "end start"],
   });
 
+  const isMobile = typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia("(pointer: coarse)").matches);
   // Relative movement at 0.85x scroll speed (-15% parallax drift)
   const y = useTransform(scrollYProgress, [0, 1], ["-12%", "12%"]);
 
@@ -343,7 +350,7 @@ export function ParallaxMountain({ className }: { className?: string }) {
     >
       <motion.div
         className="why-choose-us-mountain-layer"
-        style={reduce ? undefined : { y }}
+        style={reduce || isMobile ? undefined : { y }}
       />
     </div>
   );

@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import {
   createBrowserRouter,
   Link,
   RouterProvider,
+  useNavigate,
+  useLocation,
   useParams,
 } from "react-router"
 import logoImage from "@/imports/logo.webp"
@@ -26,6 +28,18 @@ import {
   ParallaxMountain,
 } from "./site-motion";
 type IconName = "code" | "agent" | "model" | "spark" | "flow" | "software" | "arrow" | "check" | "menu" | "close"
+
+const WHATSAPP_NUMBER = "918667540547" // +91 866 754 0547
+
+function openWhatsApp({ name, email, service, details }: { name: string; email: string; service: string; details: string }) {
+  const lines = ["Hi Epocx Innovation, I'd like to discuss a project."]
+  if (name) lines.push(`Name: ${name}`)
+  if (email) lines.push(`Email: ${email}`)
+  if (service) lines.push(`Service: ${service}`)
+  if (details) lines.push(`Details: ${details}`)
+  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines.join("\n"))}`
+  window.open(url, "_blank", "noopener,noreferrer")
+}
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -1060,7 +1074,7 @@ function FloatingActions() {
 
   useEffect(() => {
     const handleScroll = () => {
-      setShowBackToTop(window.scrollY > 300)
+      setShowBackToTop(window.scrollY > 600)
     }
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
@@ -1074,7 +1088,7 @@ function FloatingActions() {
     <aside className="floating-actions" aria-label="Quick actions">
       <a
         className="fab-btn fab-whatsapp"
-        href="https://wa.me/919999999999?text=Hello%20Epocx%20Innovation%2C%20I%20would%20like%20to%20inquire%20about%20your%20services"
+        href={`https://wa.me/${WHATSAPP_NUMBER}`}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with Epocx Innovation on WhatsApp"
@@ -1127,10 +1141,60 @@ function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [formStatus, setFormStatus] =
     useState<"idle" | "sending" | "success" | "error">("idle")
+
+  // Controlled field values
+  const [fields, setFields] = useState({ name: "", email: "", details: "" })
+
+  // Blur-touched tracking for inline validation
+  const [touched, setTouched] = useState({ name: false, email: false, details: false })
+
+  // Inline error messages
+  function getError(field: keyof typeof fields): string {
+    if (!touched[field]) return ""
+    if (field === "name" && !fields.name.trim()) return "Please enter your name"
+    if (field === "email") {
+      if (!fields.email.trim()) return "Please enter a valid email"
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) return "Please enter a valid email"
+    }
+    if (field === "details" && !fields.details.trim()) return "Please enter your message"
+    return ""
+  }
+
   const closeMenu = () => setMenuOpen(false)
+
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [menuOpen])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && menuOpen) setMenuOpen(false)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [menuOpen])
+
   const handleInquiry = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // Mark all touched for validation display
+    setTouched({ name: true, email: true, details: true })
+    // Validate
+    if (!fields.name.trim()) return
+    if (!fields.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) return
+    if (!fields.details.trim()) return
+
     const form = event.currentTarget
+    // Honeypot check
+    const honeypot = form.elements.namedItem("_gotcha") as HTMLInputElement | null
+    if (honeypot && honeypot.value) return
+
     setFormStatus("sending")
 
     try {
@@ -1145,11 +1209,35 @@ function HomePage() {
 
       if (!response.ok) throw new Error("Unable to send inquiry")
       form.reset()
+      setFields({ name: "", email: "", details: "" })
+      setTouched({ name: false, email: false, details: false })
       setFormStatus("success")
+      // Move focus to success message
+      setTimeout(() => {
+        const msg = document.getElementById("form-success-msg")
+        msg?.focus()
+      }, 100)
     } catch {
       setFormStatus("error")
     }
   }
+
+  // Trigger fade-up animation when form enters viewport
+  useEffect(() => {
+    const form = document.querySelector(".contact-form")
+    if (!form) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          form.classList.add("in-view")
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(form)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <PageFadeIn>
@@ -1356,14 +1444,13 @@ function HomePage() {
               </p>
             </div>
             <StaggerContainer className="services-grid" stagger={0.12}>
-              {services.map((service, index) => (
+              {services.map((service) => (
                 <StaggerItem key={service.title}>
                   <article className="service-card">
                     <div className="service-top">
                       <span className="service-icon">
                         <Icon name={service.icon} />
                       </span>
-                      <small>0{index + 1}</small>
                     </div>
                     <h3>{service.title}</h3>
                     <p>{service.text}</p>
@@ -1511,7 +1598,6 @@ function HomePage() {
                 <StaggerItem key={project.slug}>
                   <article className={`project-row project-${i}`}>
                     <div className="project-info">
-                      <span>0{i + 1}</span>
                       <h3>{project.title}</h3>
                       <p>{project.shortDesc}</p>
                       <div className="tags">
@@ -1556,35 +1642,18 @@ function HomePage() {
         </section>
 
         <section className="section contact-section" id="contact">
-          <div className="container contact-grid">
-            <div className="contact-copy">
-              <div className="eyebrow">START A CONVERSATION</div>
-              <h2>What are you looking to build?</h2>
+          <div className="container contact-container">
+            <div className="contact-header">
+              <h2>Let&apos;s Build Something Amazing</h2>
               <p>
-                Share a little about your goals. We&apos;ll get back to you with
-                thoughtful questions and a clear next step.
+                Have a project in mind? We are excited to serve you! Reach out and let&apos;s create something extraordinary together.
               </p>
-              <div className="contact-details">
-                <div>
-                  <small>EMAIL</small>
-                  <a href="mailto:info@epocxinnovations.in">
-                    info@epocxinnovations.in
-                  </a>
-                </div>
-                <div>
-                  <small>LOCATION</small>
-                  <span>Tamil Nadu , India</span>
-                </div>
-                <div>
-                  <small>SOCIAL</small>
-                  <span>
-                    <a href="https://www.linkedin.com/company/epocx-innovations/">LinkedIn</a> |{" "}
-                    <a href="https://github.com/EpocxInnovations">GitHub</a>
-                  </span>
-                </div>
-              </div>
             </div>
-            <form className="contact-form" onSubmit={handleInquiry}>
+            <form
+              className="contact-form"
+              onSubmit={handleInquiry}
+              noValidate
+            >
               <input
                 type="hidden"
                 name="_subject"
@@ -1592,75 +1661,99 @@ function HomePage() {
               />
               <input type="hidden" name="_template" value="table" />
               <input type="hidden" name="_captcha" value="false" />
-              <div className="form-row">
-                <label>
-                  Full Name
-                  <input
-                    type="text"
-                    name="Full Name"
-                    placeholder="Jane Smith"
-                    required
-                  />
-                </label>
-                <label>
-                  Work Email
-                  <input
-                    type="email"
-                    name="Work Email"
-                    placeholder="jane@company.com"
-                    required
-                  />
-                </label>
-              </div>
-              <div className="form-row">
-                <label>
-                  Company
-                  <input
-                    type="text"
-                    name="Company"
-                    placeholder="Company name"
-                  />
-                </label>
-                <label>
-                  Service Required
-                  <select name="Service Required" defaultValue="" required>
-                    <option value="" disabled>
-                      Select a service
-                    </option>
-                    {services.map((s) => (
-                      <option key={s.title}>{s.title}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label>
-                Project Details
-                <textarea
-                  name="Project Details"
-                  rows={5}
-                  placeholder="Tell us about the challenge, goals, or idea you have in mind..."
+              {/* Honeypot spam protection */}
+              <input
+                type="text"
+                name="_gotcha"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                style={{ display: "none" }}
+              />
+              <div className="form-field">
+                <input
+                  id="cf-name"
+                  type="text"
+                  name="Name"
+                  placeholder="Your Name"
+                  autoComplete="off"
                   required
+                  aria-required="true"
+                  aria-invalid={!!getError("name")}
+                  aria-describedby={getError("name") ? "err-name" : undefined}
+                  value={fields.name}
+                  onChange={e => setFields(f => ({ ...f, name: e.target.value }))}
+                  onBlur={() => setTouched(t => ({ ...t, name: true }))}
+                  className={getError("name") ? "field-invalid" : ""}
                 />
-              </label>
-              <MagneticButton>
-                <button
-                  className="button submit-button"
-                  type="submit"
-                  disabled={formStatus === "sending"}
-                >
-                  {formStatus === "sending" ? "Sending..." : "Send Inquiry"}{" "}
-                  {formStatus !== "sending" && <Icon name="arrow" size={17} />}
-                </button>
-              </MagneticButton>
+                {getError("name") && (
+                  <span id="err-name" className="field-error" aria-live="polite">{getError("name")}</span>
+                )}
+              </div>
+
+              <div className="form-field">
+                <input
+                  id="cf-email"
+                  type="email"
+                  name="Email"
+                  placeholder="Your Email"
+                  autoComplete="off"
+                  required
+                  aria-required="true"
+                  aria-invalid={!!getError("email")}
+                  aria-describedby={getError("email") ? "err-email" : undefined}
+                  value={fields.email}
+                  onChange={e => setFields(f => ({ ...f, email: e.target.value }))}
+                  onBlur={() => setTouched(t => ({ ...t, email: true }))}
+                  className={getError("email") ? "field-invalid" : ""}
+                />
+                {getError("email") && (
+                  <span id="err-email" className="field-error" aria-live="polite">{getError("email")}</span>
+                )}
+              </div>
+
+              <div className="form-field">
+                <textarea
+                  id="cf-details"
+                  name="Message"
+                  placeholder="Your Message"
+                  rows={5}
+                  required
+                  aria-required="true"
+                  aria-invalid={!!getError("details")}
+                  aria-describedby={getError("details") ? "err-details" : undefined}
+                  value={fields.details}
+                  onChange={e => setFields(f => ({ ...f, details: e.target.value }))}
+                  onBlur={() => setTouched(t => ({ ...t, details: true }))}
+                  className={getError("details") ? "field-invalid" : ""}
+                />
+                {getError("details") && (
+                  <span id="err-details" className="field-error" aria-live="polite">{getError("details")}</span>
+                )}
+              </div>
+              <button
+                className="submit-button"
+                type="submit"
+                disabled={formStatus === "sending"}
+              >
+                {formStatus === "sending" ? "Sending..." : "Send Message"}
+              </button>
+
+              {/* Success / Error messages */}
               {formStatus === "success" && (
-                <p className="form-status success" role="status">
-                  Thank you. Your inquiry has been sent successfully.
+                <p
+                  id="form-success-msg"
+                  className="form-status success"
+                  role="status"
+                  tabIndex={-1}
+                >
+                  Thank you! We&apos;ll reply within 24 hours.
                 </p>
               )}
               {formStatus === "error" && (
                 <p className="form-status error" role="alert">
-                  Your inquiry could not be sent. Please try again or email us
-                  directly.
+                  Something went wrong. Please email{" "}
+                  <a href="mailto:info@epocxinnovations.in">info@epocxinnovations.in</a>.
                 </p>
               )}
             </form>
@@ -1730,8 +1823,169 @@ function HomePage() {
   )
 }
 
+interface ServicesDropdownProps {
+  currentSlug?: string
+  onNavigate?: () => void
+}
+
+function ServicesDropdown({ currentSlug, onNavigate }: ServicesDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState<number>(-1)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLUListElement>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // Close when route changes
+  useEffect(() => {
+    setIsOpen(false)
+  }, [location.pathname])
+
+  // Close on outside click or touch
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick)
+    document.addEventListener("touchstart", handleOutsideClick)
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick)
+      document.removeEventListener("touchstart", handleOutsideClick)
+    }
+  }, [])
+
+  // Focus management for keyboard navigation
+  useEffect(() => {
+    if (isOpen && activeIndex >= 0 && menuRef.current) {
+      const items = menuRef.current.querySelectorAll<HTMLAnchorElement>('[role="menuitem"]')
+      if (items[activeIndex]) {
+        items[activeIndex].focus()
+      }
+    }
+  }, [activeIndex, isOpen])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setIsOpen(false)
+      containerRef.current?.querySelector<HTMLButtonElement>("button")?.focus()
+      return
+    }
+
+    if (!isOpen) {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault()
+        setIsOpen(true)
+        setActiveIndex(0)
+      }
+      return
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setActiveIndex((prev) => (prev + 1) % services.length)
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setActiveIndex((prev) => (prev - 1 + services.length) % services.length)
+    }
+  }
+
+  const handleBlur = (e: React.FocusEvent) => {
+    if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+      setIsOpen(false)
+    }
+  }
+
+  const handleSelect = (slug: string) => {
+    setIsOpen(false)
+    navigate(`/services/${slug}`)
+    window.scrollTo(0, 0)
+    if (onNavigate) onNavigate()
+  }
+
+  return (
+    <div
+      className={`services-dropdown ${isOpen ? "open" : ""}`}
+      ref={containerRef}
+      onMouseEnter={() => {
+        if (window.innerWidth >= 768) {
+          setIsOpen(true)
+        }
+      }}
+      onMouseLeave={() => {
+        if (window.innerWidth >= 768) {
+          setIsOpen(false)
+        }
+      }}
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+    >
+      <button
+        type="button"
+        className="services-dropdown-trigger"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        <span>All Services</span>
+        <svg
+          className="services-dropdown-chevron"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <ul
+          className="services-dropdown-menu"
+          role="menu"
+          aria-label="All Services"
+          ref={menuRef}
+        >
+          {services.map((item, idx) => {
+            const slug = serviceSlug(item.title)
+            const isActive = slug === currentSlug
+            return (
+              <li key={item.title} role="none">
+                <Link
+                  to={`/services/${slug}`}
+                  role="menuitem"
+                  className={`services-dropdown-item ${isActive ? "active" : ""}`}
+                  aria-current={isActive ? "page" : undefined}
+                  tabIndex={isOpen ? 0 : -1}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleSelect(slug)
+                  }}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                >
+                  {item.title}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function ServiceTechnologyPage() {
   const { serviceSlug: currentSlug } = useParams()
+  const [menuOpen, setMenuOpen] = useState(false)
   const service = services.find(
     (item) => serviceSlug(item.title) === currentSlug,
   )
@@ -1739,6 +1993,25 @@ function ServiceTechnologyPage() {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [currentSlug])
+
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [menuOpen])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && menuOpen) setMenuOpen(false)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [menuOpen])
 
   if (!service) {
     return (
@@ -1758,46 +2031,61 @@ function ServiceTechnologyPage() {
     <PageFadeIn>
       <div className="site-shell service-page">
         <header className="navbar">
-        <div className="container nav-inner">
-          <Logo />
-          <nav
-            className="service-page-nav"
-            aria-label="Service page navigation"
-          >
-            <a href="/#services">All Services</a>
-            <a className="button button-small" href="/#contact">
-              Let&apos;s Talk <Icon name="arrow" size={16} />
-            </a>
-          </nav>
-        </div>
-      </header>
-
-      <main>
-        <section className="service-detail-hero">
-          <div className="container service-detail-hero-grid">
-            <div>
-              <a className="back-link" href="/#services">
-                <span>←</span> Back to services
+          <div className="container nav-inner">
+            <Logo />
+            <nav
+              className={menuOpen ? "service-page-nav open" : "service-page-nav"}
+              aria-label="Service page navigation"
+            >
+              <ServicesDropdown
+                currentSlug={currentSlug}
+                onNavigate={() => setMenuOpen(false)}
+              />
+              <a
+                className="button button-small nav-cta"
+                href="/#contact"
+                onClick={() => setMenuOpen(false)}
+              >
+                Let&apos;s Talk <Icon name="arrow" size={16} />
               </a>
-              <div className="eyebrow">
-                <span />
-                OUR CAPABILITIES
-              </div>
-              <h1>{service.title}</h1>
-              <p>
-                {service.text} We select each part of the stack for
-                maintainability, performance, and a clear fit with your business
-                requirements.
-              </p>
-            </div>
-            <div className="service-detail-mark">
-              <span>0{services.indexOf(service) + 1}</span>
-              <div>
-                <Icon name={service.icon} size={48} />
-              </div>
-            </div>
+            </nav>
+            <button
+              className="menu-button"
+              type="button"
+              aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <Icon name={menuOpen ? "close" : "menu"} />
+            </button>
           </div>
-        </section>
+        </header>
+
+        <main>
+          <section className="service-detail-hero">
+            <div className="container service-detail-hero-grid">
+              <div>
+                <Link className="back-link" to="/">
+                  <span>←</span> Back to home
+                </Link>
+                <div className="eyebrow">
+                  <span />
+                  OUR CAPABILITIES
+                </div>
+                <h1>{service.title}</h1>
+                <p>
+                  {service.text} We select each part of the stack for
+                  maintainability, performance, and a clear fit with your business
+                  requirements.
+                </p>
+              </div>
+              <div className="service-detail-mark">
+                <div>
+                  <Icon name={service.icon} size={48} />
+                </div>
+              </div>
+            </div>
+          </section>
 
         <section className="service-stack-section">
           <div className="container service-stack-grid">
@@ -1859,11 +2147,31 @@ function ServiceTechnologyPage() {
 
 function ProjectDetailPage() {
   const { projectSlug: currentSlug } = useParams()
+  const [menuOpen, setMenuOpen] = useState(false)
   const project = projects.find((item) => item.slug === currentSlug)
 
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [currentSlug])
+
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [menuOpen])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && menuOpen) setMenuOpen(false)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [menuOpen])
 
   if (!project) {
     return (
@@ -1886,15 +2194,24 @@ function ProjectDetailPage() {
           <div className="container nav-inner">
             <Logo />
             <nav
-              className="service-page-nav"
+              className={menuOpen ? "service-page-nav open" : "service-page-nav"}
               aria-label="Project page navigation"
             >
-              <a href="/#projects">All Projects</a>
-              <a href="/#services">Services</a>
-              <a className="button button-small" href="/#contact">
+              <a href="/#projects" onClick={() => setMenuOpen(false)}>All Projects</a>
+              <a href="/#services" onClick={() => setMenuOpen(false)}>Services</a>
+              <a className="button button-small nav-cta" href="/#contact" onClick={() => setMenuOpen(false)}>
                 Let&apos;s Talk <Icon name="arrow" size={16} />
               </a>
             </nav>
+            <button
+              className="menu-button"
+              type="button"
+              aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <Icon name={menuOpen ? "close" : "menu"} />
+            </button>
           </div>
         </header>
 
@@ -2037,7 +2354,10 @@ function ProjectDetailPage() {
             <div className="container">
               <div>
                 <div className="eyebrow light">BUILD WITH PURPOSE</div>
-                <h2>Have a {project.title.toLowerCase()} in mind?</h2>
+                <h2>
+                  Have {project.title.toLowerCase().startsWith("ai") ? "" : "a "}
+                  {project.title.toLowerCase()} in mind?
+                </h2>
               </div>
               <MagneticButton>
                 <a className="button button-light" href="/#contact">
