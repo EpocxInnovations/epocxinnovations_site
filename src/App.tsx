@@ -789,13 +789,13 @@ function AgroGuardVisual() {
 function ProjectVisual({ type }: { type: number }) {
   if (type === 0)
     return (
-      <div className="project-ui ecommerce-ui">
+      <div className="project-ui ecommerce-ui" aria-hidden="true">
         <div className="ecom-topbar">
           <div className="ecom-status">
             <span className="live-dot" />
             <span>AI COMMERCE ENGINE</span>
           </div>
-          <div className="ecom-search">
+          <div className="ecom-search" tabIndex={-1} aria-hidden="true">
             <svg
               width="12"
               height="12"
@@ -809,7 +809,7 @@ function ProjectVisual({ type }: { type: number }) {
             </svg>
             <span>Search products, categories, SKU...</span>
           </div>
-          <div className="ecom-cart-badge">
+          <div className="ecom-cart-badge" tabIndex={-1} aria-hidden="true">
             <svg
               width="12"
               height="12"
@@ -853,9 +853,13 @@ function ProjectVisual({ type }: { type: number }) {
               </div>
             </div>
             <div className="ecom-actions">
-              <button className="ecom-btn-primary" type="button">
+              <div
+                className="ecom-btn-primary"
+                tabIndex={-1}
+                aria-hidden="true"
+              >
                 1-Click Instant Checkout
-              </button>
+              </div>
               <span className="ecom-stock-tag">
                 ⚡ In Stock (Ready for Dispatch)
               </span>
@@ -897,7 +901,7 @@ function ProjectVisual({ type }: { type: number }) {
 
   if (type === 1)
     return (
-      <div className="project-ui protein-ui">
+      <div className="project-ui protein-ui" aria-hidden="true">
         <div className="protein-topbar">
           <div className="protein-target">
             <span className="protein-pulse" />
@@ -984,7 +988,7 @@ function ProjectVisual({ type }: { type: number }) {
 
   if (type === 2)
     return (
-      <div className="project-ui skindisease-ui">
+      <div className="project-ui skindisease-ui" aria-hidden="true">
         <div className="skin-topbar">
           <div className="skin-case-id">
             <span className="skin-pulse" />
@@ -1164,14 +1168,17 @@ function FloatingActions() {
 
 function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState("home")
+  const clickedSectionRef = useRef<string | null>(null)
+  const clickTimeoutRef = useRef<number | null>(null)
   const [formStatus, setFormStatus] =
     useState<"idle" | "sending" | "success" | "error">("idle")
 
   // Controlled field values
-  const [fields, setFields] = useState({ name: "", email: "", details: "" })
+  const [fields, setFields] = useState({ name: "", email: "", service: "", details: "" })
 
   // Blur-touched tracking for inline validation
-  const [touched, setTouched] = useState({ name: false, email: false, details: false })
+  const [touched, setTouched] = useState({ name: false, email: false, service: false, details: false })
 
   // Inline error messages
   function getError(field: keyof typeof fields): string {
@@ -1181,7 +1188,8 @@ function HomePage() {
       if (!fields.email.trim()) return "Please enter a valid email"
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) return "Please enter a valid email"
     }
-    if (field === "details" && !fields.details.trim()) return "Please enter your message"
+    if (field === "service" && !fields.service.trim()) return "Please choose a service"
+    if (field === "details" && fields.details.trim().length < 10) return "Please tell us a little about your project"
     return ""
   }
 
@@ -1216,11 +1224,12 @@ function HomePage() {
   const handleInquiry = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     // Mark all touched for validation display
-    setTouched({ name: true, email: true, details: true })
+    setTouched({ name: true, email: true, service: true, details: true })
     // Validate
     if (!fields.name.trim()) return
     if (!fields.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) return
-    if (!fields.details.trim()) return
+    if (!fields.service.trim()) return
+    if (fields.details.trim().length < 10) return
 
     const form = event.currentTarget
     // Honeypot check
@@ -1243,6 +1252,7 @@ function HomePage() {
         body: JSON.stringify({
           name: fields.name.trim(),
           email: fields.email.trim(),
+          service: fields.service.trim(),
           details: fields.details.trim(),
           _gotcha: honeypot?.value || "",
         }),
@@ -1252,8 +1262,8 @@ function HomePage() {
 
       if (!response.ok) throw new Error("Unable to send inquiry")
       form.reset()
-      setFields({ name: "", email: "", details: "" })
-      setTouched({ name: false, email: false, details: false })
+      setFields({ name: "", email: "", service: "", details: "" })
+      setTouched({ name: false, email: false, service: false, details: false })
       setFormStatus("success")
       // Move focus to success message immediately
       const msg = document.getElementById("form-success-msg")
@@ -1264,21 +1274,117 @@ function HomePage() {
     }
   }
 
-  // Trigger fade-up animation when form enters viewport
+  // Trigger fade-up animation when contact card enters viewport
   useEffect(() => {
-    const form = document.querySelector(".contact-form")
-    if (!form) return
+    const card = document.querySelector(".contact-card")
+    if (!card) return
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          form.classList.add("in-view")
+          card.classList.add("in-view")
           observer.disconnect()
         }
       },
       { threshold: 0.1 }
     )
-    observer.observe(form)
+    observer.observe(card)
     return () => observer.disconnect()
+  }, [])
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    e.preventDefault()
+    setActiveSection(id)
+    clickedSectionRef.current = id
+    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current)
+    clickTimeoutRef.current = window.setTimeout(() => {
+      clickedSectionRef.current = null
+    }, 1000)
+
+    closeMenu()
+
+    const el = document.getElementById(id)
+    if (el) {
+      const isReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      el.scrollIntoView({ behavior: isReduced ? "auto" : "smooth" })
+      window.history.pushState(null, "", `#${id}`)
+    }
+  }
+
+  // Scroll-spy observer for home page navigation
+  useEffect(() => {
+    const sectionIds = ["home", "services", "about", "projects", "contact"]
+    const visibleMap = new Map<string, IntersectionObserverEntry>()
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (clickedSectionRef.current) return
+
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            visibleMap.set(entry.target.id, entry)
+          } else {
+            visibleMap.delete(entry.target.id)
+          }
+        })
+
+        if (visibleMap.size > 0) {
+          let chosen = ""
+          let maxRatio = -1
+          for (const id of sectionIds) {
+            const entry = visibleMap.get(id)
+            if (entry && entry.intersectionRatio > maxRatio) {
+              maxRatio = entry.intersectionRatio
+              chosen = id
+            }
+          }
+          if (chosen) {
+            setActiveSection(chosen)
+          }
+        }
+      },
+      {
+        rootMargin: "-20% 0px -55% 0px",
+        threshold: [0, 0.1, 0.25, 0.5, 0.75],
+      }
+    )
+
+    sectionIds.forEach((id) => {
+      const el = document.getElementById(id)
+      if (el) observer.observe(el)
+    })
+
+    // Top observer for home section (guarantees Home is active at top)
+    const homeEl = document.getElementById("home")
+    const topObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (clickedSectionRef.current) return
+        if (entry && entry.isIntersecting) {
+          setActiveSection("home")
+        }
+      },
+      { rootMargin: "0px 0px -85% 0px", threshold: 0.1 }
+    )
+    if (homeEl) topObserver.observe(homeEl)
+
+    // Bottom observer for footer (guarantees Contact is active at bottom)
+    const footerEl = document.querySelector("footer")
+    const bottomObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (clickedSectionRef.current) return
+        if (entry && entry.isIntersecting) {
+          setActiveSection("contact")
+        }
+      },
+      { threshold: 0.1 }
+    )
+    if (footerEl) bottomObserver.observe(footerEl)
+
+    return () => {
+      observer.disconnect()
+      topObserver.disconnect()
+      bottomObserver.disconnect()
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current)
+    }
   }, [])
 
   return (
@@ -1291,22 +1397,26 @@ function HomePage() {
               className={menuOpen ? "nav-links open" : "nav-links"}
               aria-label="Main navigation"
             >
-              {["Home", "Services", "About", "Projects", "Contact"].map(
-                (item) => (
+              {["Home", "Services", "About", "Projects", "Contact"].map((item) => {
+                const id = item.toLowerCase()
+                const isActive = activeSection === id
+                return (
                   <a
                     key={item}
-                    href={`#${item.toLowerCase()}`}
-                    onClick={closeMenu}
+                    href={`#${id}`}
+                    className={isActive ? "active" : ""}
+                    aria-current={isActive ? "true" : undefined}
+                    onClick={(e) => handleNavClick(e, id)}
                   >
                     {item}
                   </a>
-                ),
-              )}
+                )
+              })}
               <MagneticButton>
                 <a
                   className="button button-small nav-cta"
                   href="#contact"
-                  onClick={closeMenu}
+                  onClick={(e) => handleNavClick(e, "contact")}
                 >
                   Let&apos;s Talk <Icon name="arrow" size={16} />
                 </a>
@@ -1691,116 +1801,219 @@ function HomePage() {
                 Have a project in mind? We are excited to serve you! Reach out and let&apos;s create something extraordinary together.
               </p>
             </div>
-            <form
-              className="contact-form"
-              onSubmit={handleInquiry}
-              onFocus={prewarmBackend}
-              noValidate
-            >
-              <input
-                type="hidden"
-                name="_subject"
-                value="New inquiry from the Epocx Innovation website"
-              />
-              <input type="hidden" name="_template" value="table" />
-              <input type="hidden" name="_captcha" value="false" />
-              {/* Honeypot spam protection */}
-              <input
-                type="text"
-                name="_gotcha"
-                tabIndex={-1}
-                autoComplete="off"
-                aria-hidden="true"
-                style={{ display: "none" }}
-              />
-              <div className="form-field">
-                <input
-                  id="cf-name"
-                  type="text"
-                  name="Name"
-                  placeholder="Your Name"
-                  autoComplete="off"
-                  required
-                  aria-required="true"
-                  aria-invalid={!!getError("name")}
-                  aria-describedby={getError("name") ? "err-name" : undefined}
-                  value={fields.name}
-                  onChange={e => setFields(f => ({ ...f, name: e.target.value }))}
-                  onBlur={() => setTouched(t => ({ ...t, name: true }))}
-                  className={getError("name") ? "field-invalid" : ""}
-                />
-                {getError("name") && (
-                  <span id="err-name" className="field-error" aria-live="polite">{getError("name")}</span>
-                )}
-              </div>
 
-              <div className="form-field">
-                <input
-                  id="cf-email"
-                  type="email"
-                  name="Email"
-                  placeholder="Your Email"
-                  autoComplete="off"
-                  required
-                  aria-required="true"
-                  aria-invalid={!!getError("email")}
-                  aria-describedby={getError("email") ? "err-email" : undefined}
-                  value={fields.email}
-                  onChange={e => setFields(f => ({ ...f, email: e.target.value }))}
-                  onBlur={() => setTouched(t => ({ ...t, email: true }))}
-                  className={getError("email") ? "field-invalid" : ""}
-                />
-                {getError("email") && (
-                  <span id="err-email" className="field-error" aria-live="polite">{getError("email")}</span>
-                )}
-              </div>
-
-              <div className="form-field">
-                <textarea
-                  id="cf-details"
-                  name="Message"
-                  placeholder="Your Message"
-                  rows={5}
-                  required
-                  aria-required="true"
-                  aria-invalid={!!getError("details")}
-                  aria-describedby={getError("details") ? "err-details" : undefined}
-                  value={fields.details}
-                  onChange={e => setFields(f => ({ ...f, details: e.target.value }))}
-                  onBlur={() => setTouched(t => ({ ...t, details: true }))}
-                  className={getError("details") ? "field-invalid" : ""}
-                />
-                {getError("details") && (
-                  <span id="err-details" className="field-error" aria-live="polite">{getError("details")}</span>
-                )}
-              </div>
-              <button
-                className="submit-button"
-                type="submit"
-                disabled={formStatus === "sending"}
+            <div className="contact-card">
+              <form
+                className="contact-form"
+                onSubmit={handleInquiry}
+                onFocus={prewarmBackend}
+                noValidate
               >
-                {formStatus === "sending" ? "Sending..." : "Send Message"}
-              </button>
-
-              {/* Success / Error messages */}
-              {formStatus === "success" && (
-                <p
-                  id="form-success-msg"
-                  className="form-status success"
-                  role="status"
+                <input
+                  type="hidden"
+                  name="_subject"
+                  value="New inquiry from the Epocx Innovation website"
+                />
+                <input type="hidden" name="_template" value="table" />
+                <input type="hidden" name="_captcha" value="false" />
+                {/* Honeypot spam protection */}
+                <input
+                  type="text"
+                  name="_gotcha"
                   tabIndex={-1}
-                >
-                  Thank you! We&apos;ll reply within 24 hours.
-                </p>
-              )}
-              {formStatus === "error" && (
-                <p className="form-status error" role="alert">
-                  Something went wrong. Please email{" "}
-                  <a href="mailto:info@epocxinnovations.in">info@epocxinnovations.in</a> or message us on{" "}
-                  <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>.
-                </p>
-              )}
-            </form>
+                  autoComplete="off"
+                  aria-hidden="true"
+                  style={{ display: "none" }}
+                />
+
+                <div className="form-row">
+                  <div className={`form-field ${getError("name") ? "has-error" : ""}`}>
+                    <label htmlFor="cf-name">Full Name</label>
+                    <div className="input-underline-wrap">
+                      <input
+                        id="cf-name"
+                        type="text"
+                        name="name"
+                        autoComplete="off"
+                        required
+                        aria-required="true"
+                        aria-invalid={!!getError("name")}
+                        aria-describedby={getError("name") ? "err-name" : undefined}
+                        value={fields.name}
+                        onChange={e => setFields(f => ({ ...f, name: e.target.value }))}
+                        onBlur={() => setTouched(t => ({ ...t, name: true }))}
+                        className={getError("name") ? "field-invalid" : ""}
+                      />
+                      <span className="field-animated-line" aria-hidden="true" />
+                    </div>
+                    {getError("name") && (
+                      <span id="err-name" className="field-error" aria-live="polite">
+                        {getError("name")}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={`form-field ${getError("email") ? "has-error" : ""}`}>
+                    <label htmlFor="cf-email">Work Email</label>
+                    <div className="input-underline-wrap">
+                      <input
+                        id="cf-email"
+                        type="email"
+                        name="email"
+                        autoComplete="off"
+                        required
+                        aria-required="true"
+                        aria-invalid={!!getError("email")}
+                        aria-describedby={getError("email") ? "err-email" : undefined}
+                        value={fields.email}
+                        onChange={e => setFields(f => ({ ...f, email: e.target.value }))}
+                        onBlur={() => setTouched(t => ({ ...t, email: true }))}
+                        className={getError("email") ? "field-invalid" : ""}
+                      />
+                      <span className="field-animated-line" aria-hidden="true" />
+                    </div>
+                    {getError("email") && (
+                      <span id="err-email" className="field-error" aria-live="polite">
+                        {getError("email")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className={`form-field ${getError("service") ? "has-error" : ""}`}>
+                  <label htmlFor="cf-service">Service Required</label>
+                  <div className="input-underline-wrap select-wrap">
+                    <select
+                      id="cf-service"
+                      name="service"
+                      required
+                      aria-required="true"
+                      aria-invalid={!!getError("service")}
+                      aria-describedby={getError("service") ? "err-service" : undefined}
+                      value={fields.service}
+                      onChange={e => setFields(f => ({ ...f, service: e.target.value }))}
+                      onBlur={() => setTouched(t => ({ ...t, service: true }))}
+                      className={getError("service") ? "field-invalid" : ""}
+                    >
+                      <option value="" disabled>
+                        Select a service
+                      </option>
+                      {services.map(s => (
+                        <option key={s.title} value={s.title}>
+                          {s.title}
+                        </option>
+                      ))}
+                    </select>
+                    <svg
+                      className="select-chevron"
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                    <span className="field-animated-line" aria-hidden="true" />
+                  </div>
+                  {getError("service") && (
+                    <span id="err-service" className="field-error" aria-live="polite">
+                      {getError("service")}
+                    </span>
+                  )}
+                </div>
+
+                <div className={`form-field ${getError("details") ? "has-error" : ""}`}>
+                  <label htmlFor="cf-details">Project Details</label>
+                  <div className="input-underline-wrap">
+                    <textarea
+                      id="cf-details"
+                      name="details"
+                      rows={5}
+                      required
+                      aria-required="true"
+                      aria-invalid={!!getError("details")}
+                      aria-describedby={getError("details") ? "err-details" : undefined}
+                      value={fields.details}
+                      onChange={e => setFields(f => ({ ...f, details: e.target.value }))}
+                      onBlur={() => setTouched(t => ({ ...t, details: true }))}
+                      className={getError("details") ? "field-invalid" : ""}
+                    />
+                    <span className="field-animated-line" aria-hidden="true" />
+                  </div>
+                  {getError("details") && (
+                    <span id="err-details" className="field-error" aria-live="polite">
+                      {getError("details")}
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-action-row">
+                  <button
+                    className="submit-button inquiry-btn"
+                    type="submit"
+                    disabled={formStatus === "sending"}
+                  >
+                    {formStatus === "sending" ? (
+                      <>
+                        <span className="btn-spinner" aria-hidden="true" />
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Send Inquiry</span>
+                        <span className="btn-arrow" aria-hidden="true">
+                          <Icon name="arrow" size={17} />
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Success / Error messages */}
+                {formStatus === "success" && (
+                  <p
+                    id="form-success-msg"
+                    className="form-status success"
+                    role="status"
+                    tabIndex={-1}
+                  >
+                    Thank you! We&apos;ll reply within 24 hours.
+                  </p>
+                )}
+                {formStatus === "error" && (
+                  <p className="form-status error" role="alert">
+                    Something went wrong. Please email{" "}
+                    <a href="mailto:info@epocxinnovations.in">info@epocxinnovations.in</a> or message us on{" "}
+                    <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>.
+                  </p>
+                )}
+              </form>
+            </div>
+
+            {/* Optional contact info strip under the form */}
+            <div className="contact-info-strip">
+              <div className="contact-info-item">
+                <span className="info-label">EMAIL</span>
+                <a href="mailto:info@epocxinnovations.in" className="info-val">
+                  info@epocxinnovations.in
+                </a>
+              </div>
+              <div className="contact-info-item">
+                <span className="info-label">PHONE</span>
+                <a href={`tel:+${WHATSAPP_NUMBER}`} className="info-val">
+                  +91 866 754 0547
+                </a>
+              </div>
+              <div className="contact-info-item">
+                <span className="info-label">LOCATION</span>
+                <span className="info-val">Tamil Nadu, India</span>
+              </div>
+            </div>
           </div>
         </section>
       </main>
