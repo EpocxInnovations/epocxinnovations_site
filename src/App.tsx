@@ -34,7 +34,7 @@ const WHATSAPP_NUMBER = "918667540547" // +91 866 754 0547
 // Web3Forms Configuration
 const WEB3FORMS_ACCESS_KEY =
   (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string | undefined) ||
-  "7c494975-3be3-49e1-917d-2ef594506e6d"
+  "8353502c-8efe-4a22-a520-ee4a4a82ee59"
 
 function openWhatsApp({ name, email, service, details }: { name: string; email: string; service: string; details: string }) {
   const lines = ["Hi Epocx Innovation, I'd like to discuss a project."]
