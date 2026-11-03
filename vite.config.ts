@@ -448,7 +448,28 @@ function apiLocalServerPlugin(): Plugin {
             return
           }
 
-          if (process.env.RESEND_API_KEY) {
+          if (process.env.WEB3FORMS_ACCESS_KEY) {
+            const web3Res = await fetch('https://api.web3forms.com/submit', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify({
+                access_key: process.env.WEB3FORMS_ACCESS_KEY,
+                name: trimmedName,
+                email: trimmedEmail,
+                service: service || 'General Inquiry',
+                message: trimmedDetails,
+                subject: `New inquiry from ${trimmedName}`,
+                from_name: 'Epocx Innovations Website',
+              }),
+            })
+            const web3Data = await web3Res.json()
+            if (!web3Res.ok || !web3Data.success) {
+              throw new Error(web3Data?.message || `Web3Forms error ${web3Res.status}`)
+            }
+          } else if (process.env.RESEND_API_KEY) {
             const resendRes = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: {

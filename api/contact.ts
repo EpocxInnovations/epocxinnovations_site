@@ -6,6 +6,7 @@ interface ContactPayload {
   details?: string
   service?: string
   _gotcha?: string
+  botcheck?: string | boolean
 }
 
 async function parseBody(req: IncomingMessage & { body?: any }): Promise<ContactPayload> {
@@ -65,10 +66,10 @@ export default async function handler(
 
   try {
     const body = await parseBody(req)
-    const { name, email, details, service = "", _gotcha } = body
+    const { name, email, details, service = "", _gotcha, botcheck } = body
 
     // 1. Honeypot check: Silent success if filled
-    if (_gotcha && String(_gotcha).trim().length > 0) {
+    if ((_gotcha && String(_gotcha).trim().length > 0) || (botcheck && String(botcheck).trim().length > 0)) {
       res.statusCode = 200
       res.setHeader("Content-Type", "application/json")
       res.end(JSON.stringify({ ok: true }))
@@ -99,8 +100,33 @@ export default async function handler(
     }\n\nMessage:\n${trimmedDetails}`
 
     // 3. Email Dispatch Strategy:
-    // Option A: Resend HTTPS API (Recommended - fastest latency)
-    if (process.env.RESEND_API_KEY) {
+    // Option A: Web3Forms API
+    if (process.env.WEB3FORMS_ACCESS_KEY) {
+      const web3Res = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          access_key: process.env.WEB3FORMS_ACCESS_KEY,
+          name: trimmedName,
+          email: trimmedEmail,
+          service: service || "General Inquiry",
+          message: trimmedDetails,
+          subject: emailSubject,
+          from_name: "Epocx Innovations Website",
+        }),
+      })
+
+      const web3Data = await web3Res.json()
+      if (!web3Res.ok || !web3Data.success) {
+        console.error("Web3Forms API Error:", web3Data)
+        throw new Error(web3Data?.message || `Web3Forms returned HTTP ${web3Res.status}`)
+      }
+    }
+    // Option B: Resend HTTPS API (Recommended - fastest latency)
+    else if (process.env.RESEND_API_KEY) {
       const resendRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {

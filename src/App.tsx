@@ -31,6 +31,11 @@ type IconName = "code" | "agent" | "model" | "spark" | "flow" | "software" | "ar
 
 const WHATSAPP_NUMBER = "918667540547" // +91 866 754 0547
 
+// Web3Forms Configuration
+const WEB3FORMS_ACCESS_KEY =
+  (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string | undefined) ||
+  "7c494975-3be3-49e1-917d-2ef594506e6d"
+
 function openWhatsApp({ name, email, service, details }: { name: string; email: string; service: string; details: string }) {
   const lines = ["Hi Epocx Innovation, I'd like to discuss a project."]
   if (name) lines.push(`Name: ${name}`)
@@ -1232,9 +1237,13 @@ function HomePage() {
     if (fields.details.trim().length < 10) return
 
     const form = event.currentTarget
-    // Honeypot check
-    const honeypot = form.elements.namedItem("_gotcha") as HTMLInputElement | null
-    if (honeypot && honeypot.value) return
+    // Honeypot spam protection (Web3Forms botcheck)
+    const botcheck = form.elements.namedItem("botcheck") as HTMLInputElement | null
+    const gotcha = form.elements.namedItem("_gotcha") as HTMLInputElement | null
+    if ((botcheck && (botcheck.checked || botcheck.value)) || (gotcha && gotcha.value)) {
+      setFormStatus("success")
+      return
+    }
 
     setFormStatus("sending")
 
@@ -1242,7 +1251,7 @@ function HomePage() {
     const timeoutId = setTimeout(() => controller.abort(), 12000)
 
     try {
-      const response = await fetch("/api/contact", {
+      const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1250,17 +1259,23 @@ function HomePage() {
         },
         signal: controller.signal,
         body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
           name: fields.name.trim(),
           email: fields.email.trim(),
           service: fields.service.trim(),
-          details: fields.details.trim(),
-          _gotcha: honeypot?.value || "",
+          message: fields.details.trim(),
+          subject: `New inquiry from ${fields.name.trim()} - Epocx Innovations`,
+          from_name: "Epocx Innovations Website",
         }),
       })
 
       clearTimeout(timeoutId)
 
-      if (!response.ok) throw new Error("Unable to send inquiry")
+      const result = await response.json()
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Unable to send inquiry")
+      }
+
       form.reset()
       setFields({ name: "", email: "", service: "", details: "" })
       setTouched({ name: false, email: false, service: false, details: false })
@@ -1268,8 +1283,9 @@ function HomePage() {
       // Move focus to success message immediately
       const msg = document.getElementById("form-success-msg")
       msg?.focus()
-    } catch {
+    } catch (err) {
       clearTimeout(timeoutId)
+      console.error("Web3Forms submission failed:", err)
       setFormStatus("error")
     }
   }
@@ -1809,17 +1825,26 @@ function HomePage() {
                 onFocus={prewarmBackend}
                 noValidate
               >
+                {/* Web3Forms Configuration & Honeypot */}
                 <input
                   type="hidden"
-                  name="_subject"
+                  name="access_key"
+                  value={WEB3FORMS_ACCESS_KEY}
+                />
+                <input
+                  type="hidden"
+                  name="subject"
                   value="New inquiry from the Epocx Innovation website"
                 />
-                <input type="hidden" name="_template" value="table" />
-                <input type="hidden" name="_captcha" value="false" />
+                <input
+                  type="hidden"
+                  name="from_name"
+                  value="Epocx Innovations Website"
+                />
                 {/* Honeypot spam protection */}
                 <input
-                  type="text"
-                  name="_gotcha"
+                  type="checkbox"
+                  name="botcheck"
                   tabIndex={-1}
                   autoComplete="off"
                   aria-hidden="true"
