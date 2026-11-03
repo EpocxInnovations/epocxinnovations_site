@@ -7,7 +7,7 @@ import {
   useLocation,
   useParams,
 } from "react-router"
-import logoImage from "@/imports/logo.webp"
+import logoImage from "@/assets/epocx-logo-mark.png"
 import heroArtwork from "@/assets/Futuristic Golden Neural Orbit Sculpture.png"
 import agroguardScreens from "@/assets/agroguard-screens.png"
 import agroguardPlantPhoto from "@/assets/agroguard-plant-photo.png"
@@ -134,44 +134,32 @@ function Logo({
     <a
       className={`logo ${inverse ? "logo-inverse" : ""}`}
       href="/#home"
-      aria-label="Epocx Innovation home"
+      aria-label="Epocx Innovations home"
     >
       <span
-        className={inverse ? "logo-mark" : ""}
-        style={
-          !inverse
-            ? {
-                width: 36,
-                height: 36,
-                padding: 0,
-                display: "grid",
-                placeItems: "center",
-                flexShrink: 0,
-                background: "transparent",
-                border: "none",
-                borderRadius: 0,
-              }
-            : undefined
-        }
+        style={{
+          width: 36,
+          height: 36,
+          padding: 0,
+          display: "grid",
+          placeItems: "center",
+          flexShrink: 0,
+          background: "transparent",
+        }}
       >
-        {inverse ? (
-          <span />
-        ) : (
-          <img
-            src={logoImage}
-            alt="Epocx Innovation logo"
-            width={120}
-            height={33}
-            decoding="async"
-            style={{
-              width: "auto",
-              height: 33,
-              marginLeft: 0,
-              objectFit: "cover",
-              borderRadius: 0,
-            }}
-          />
-        )}
+        <img
+          src={logoImage}
+          alt="Epocx Innovations logo"
+          width={36}
+          height={36}
+          decoding="async"
+          style={{
+            width: "auto",
+            height: 34,
+            maxHeight: 34,
+            objectFit: "contain",
+          }}
+        />
       </span>
       <AnimatedLogoText inverse={inverse} />
     </a>
