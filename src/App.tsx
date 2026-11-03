@@ -1237,10 +1237,13 @@ function HomePage() {
     if (fields.details.trim().length < 10) return
 
     const form = event.currentTarget
-    // Honeypot spam protection (Web3Forms botcheck)
+    // Honeypot spam protection (Web3Forms botcheck checkbox)
+    // NOTE: Must only check botcheck.checked, not botcheck.value (HTML checkbox value defaults to "on")
     const botcheck = form.elements.namedItem("botcheck") as HTMLInputElement | null
-    const gotcha = form.elements.namedItem("_gotcha") as HTMLInputElement | null
-    if ((botcheck && (botcheck.checked || botcheck.value)) || (gotcha && gotcha.value)) {
+    if (botcheck && botcheck.checked) {
+      form.reset()
+      setFields({ name: "", email: "", service: "", details: "" })
+      setTouched({ name: false, email: false, service: false, details: false })
       setFormStatus("success")
       return
     }
@@ -1262,6 +1265,7 @@ function HomePage() {
           access_key: WEB3FORMS_ACCESS_KEY,
           name: fields.name.trim(),
           email: fields.email.trim(),
+          replyto: fields.email.trim(),
           service: fields.service.trim(),
           message: fields.details.trim(),
           subject: `New inquiry from ${fields.name.trim()} - Epocx Innovations`,

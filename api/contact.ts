@@ -68,8 +68,11 @@ export default async function handler(
     const body = await parseBody(req)
     const { name, email, details, service = "", _gotcha, botcheck } = body
 
-    // 1. Honeypot check: Silent success if filled
-    if ((_gotcha && String(_gotcha).trim().length > 0) || (botcheck && String(botcheck).trim().length > 0)) {
+    // 1. Honeypot check: Silent success if filled by bots
+    if (
+      (_gotcha && String(_gotcha).trim().length > 0) ||
+      (botcheck === true || (typeof botcheck === "string" && botcheck.trim().length > 0 && botcheck !== "false" && botcheck !== "off"))
+    ) {
       res.statusCode = 200
       res.setHeader("Content-Type", "application/json")
       res.end(JSON.stringify({ ok: true }))
