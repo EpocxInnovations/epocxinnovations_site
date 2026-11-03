@@ -2011,26 +2011,6 @@ function HomePage() {
                 )}
               </form>
             </div>
-
-            {/* Optional contact info strip under the form */}
-            <div className="contact-info-strip">
-              <div className="contact-info-item">
-                <span className="info-label">EMAIL</span>
-                <a href="mailto:info@epocxinnovations.in" className="info-val">
-                  info@epocxinnovations.in
-                </a>
-              </div>
-              <div className="contact-info-item">
-                <span className="info-label">PHONE</span>
-                <a href={`tel:+${WHATSAPP_NUMBER}`} className="info-val">
-                  +91 866 754 0547
-                </a>
-              </div>
-              <div className="contact-info-item">
-                <span className="info-label">LOCATION</span>
-                <span className="info-val">Tamil Nadu, India</span>
-              </div>
-            </div>
           </div>
         </section>
       </main>
@@ -2072,7 +2052,10 @@ function HomePage() {
               <a href="mailto:info@epocxinnovations.in">
                 info@epocxinnovations.in
               </a>
-              <span> Tamil Nadu, India</span>
+              <a href={`tel:+${WHATSAPP_NUMBER}`}>
+                +91 866 754 0547
+              </a>
+              <span>Tamil Nadu, India</span>
               <div className="footer-social">
                 <a href="https://www.linkedin.com/company/epocx-innovations/">LinkedIn</a>
                 <a href="https://github.com/EpocxInnovations">GitHub</a>
